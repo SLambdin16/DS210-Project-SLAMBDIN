@@ -1,0 +1,7 @@
+target/
+*.csv
+*.png
+*.dot
+*.pyc
+__pycache__/
+.env
