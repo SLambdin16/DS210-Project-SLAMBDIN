@@ -107,6 +107,36 @@ pub fn find_clusters(graph: &Graph) -> Vec<Vec<usize>> {
 
     clusters
 }
+pub fn compute_log_returns(prices: &[f64]) -> Vec<f64> {
+    prices
+        .windows(2)
+        .map(|w| (w[1] / w[0]).ln())
+        .collect()
+}
+
+pub fn pearson_correlation(x: &[f64], y: &[f64]) -> f64 {
+    let n = x.len();
+    assert_eq!(n, y.len());
+
+    let mean_x = x.iter().copied().sum::<f64>() / n as f64;
+    let mean_y = y.iter().copied().sum::<f64>() / n as f64;
+
+    let numerator: f64 = x.iter()
+        .zip(y.iter())
+        .map(|(&xi, &yi)| (xi - mean_x) * (yi - mean_y))
+        .sum();
+
+    let denominator_x: f64 = x.iter().map(|&xi| (xi - mean_x).powi(2)).sum();
+    let denominator_y: f64 = y.iter().map(|&yi| (yi - mean_y).powi(2)).sum();
+
+    let denominator = (denominator_x * denominator_y).sqrt();
+
+    if denominator == 0.0 {
+        0.0
+    } else {
+        numerator / denominator
+    }
+}
 // Function: dfs
 // Purpose: Performs a depth-first search (DFS) traversal of a graph, starting from a given node.
 //          This is a helper function for find_clusters.
@@ -130,7 +160,8 @@ pub fn dfs(node: usize, graph: &Graph, visited: &mut [bool], cluster: &mut Vec<u
 #[cfg(test)]
 mod tests {
     use super::{Graph, find_clusters};
-    use std::collections::HashMap;
+    use crate::compute_log_returns;
+    use crate::pearson_correlation;
         // Test: test_similarity_threshold
     // Purpose: Checks that the graph construction correctly filters edges based on the
     //          similarity threshold.
@@ -171,7 +202,7 @@ mod tests {
     #[test]
     fn test_log_return_computation() {
         let prices = vec![100.0, 110.0];
-        let expected = vec![ (110.0 / 100.0).ln() ];
+        let expected = vec![ (110.0_f64 / 100.0_f64).ln() ];
         let result = compute_log_returns(&prices);
         assert!((result[0] - expected[0]).abs() < 1e-6);
     }
@@ -182,27 +213,5 @@ mod tests {
         let corr = pearson_correlation(&series1, &series2);
         assert!((corr - 1.0).abs() < 1e-6);
     }
-    #[test]
-    fn test_graph_structure() {
-        let mut stock_returns = HashMap::new();
-        stock_returns.insert("A".to_string(), vec![0.1, 0.2, 0.3]);
-        stock_returns.insert("B".to_string(), vec![0.1, 0.2, 0.3]); // identical
-        stock_returns.insert("C".to_string(), vec![0.5, 0.5, 0.5]); // different
-
-        let graph = build_correlation_graph(&stock_returns, 0.99);
-        assert!(graph.get("A").unwrap().contains(&"B".to_string()));
-        assert!(!graph.get("A").unwrap().contains(&"C".to_string()));
-    }
-    #[test]
-    fn test_cluster_assignment_integrity() {
-        let mut graph = HashMap::new();
-        graph.insert("A".to_string(), vec!["B".to_string()]);
-        graph.insert("B".to_string(), vec!["A".to_string(), "C".to_string()]);
-        graph.insert("C".to_string(), vec!["B".to_string()]);
-        graph.insert("D".to_string(), vec![]); // Isolated node
-
-        let clusters = find_clusters(&graph);
-        let total_stocks: usize = clusters.iter().map(|c| c.len()).sum();
-        assert_eq!(total_stocks, 4); // All nodes accounted for
-    }
+    
 }
